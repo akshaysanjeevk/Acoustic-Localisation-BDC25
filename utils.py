@@ -1,9 +1,10 @@
 import numpy as np 
 import matplotlib.pyplot as plt
 import scipy.signal as signal
+from tqdm import tqdm
 plt.rcParams['text.usetex'] = True
 
-
+##________ 1D System ________##
 def ReceptorNeuron(id1, id2, totL, k, lag, amp1=1, amp2=1, signal='pulse', window=10):
     if signal == 'pulse':
         out = {
@@ -53,6 +54,7 @@ def LIFNeuron(prm):
     return t, I_out, V
 
 
+##________ 2D System ________##
 def thetaUpdate(O1, O2, theta_R, delta=np.pi):
     i = 0
     hammd =np.sum(O1 != O2)
@@ -88,7 +90,7 @@ def PeriodicEmissionW(time, time_params):
 
 def SimulateTime(df, emission, init_params):
     theta_vals = np.deg2rad(np.arange(0, 360, init_params['theta_resolution']))  # Angular sweep directions
-    for i, t in enumerate(df['time']):
+    for i, t in enumerate(tqdm(df['time'], desc="Time iteration:")):
         for t_emit in emission:
             if t < t_emit:
                 continue 
@@ -108,3 +110,25 @@ def SimulateTime(df, emission, init_params):
                     df.at[i, 'Rout2'] = init_params['r2_amp']
                     hit2 = True
     return df
+
+def SimulateTime2(df, emission, init_params):
+    v = init_params['v']
+    s_pos = init_params['s_position']
+    r1_pos = init_params['r1_position']
+    r2_pos = init_params['r2_position']
+
+    arrival1 = emission + np.linalg.norm(r1_pos - s_pos) / v
+    arrival2 = emission + np.linalg.norm(r2_pos - s_pos) / v
+
+    for at in arrival1:
+        idx = np.searchsorted(df['time'], at)
+        if idx < len(df):
+            df.at[idx, 'Rout1'] = init_params['r1_amp']
+
+    for at in arrival2:
+        idx = np.searchsorted(df['time'], at)
+        if idx < len(df):
+            df.at[idx, 'Rout2'] = init_params['r2_amp']
+
+    return df
+
