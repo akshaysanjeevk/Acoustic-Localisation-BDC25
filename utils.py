@@ -22,7 +22,7 @@ def ReceptorNeuron(id1, id2, totL, k, lag, amp1=1, amp2=1, signal='pulse', windo
         }
     return out
 
-def LIF(prm):
+def oldLIF(prm):
     t_eval = np.linspace(prm['t0'], prm['tf'], prm['N'])
     dt = t_eval[1] - t_eval[0]
 
@@ -121,9 +121,6 @@ def ReceptorN(df, emission, init_params): #SimulateTime2()
     return df
 
 def LIF(df, neuronprms, timeprms):
-    '''Interneuron activity. 
-    in: outR
-    out outI'''
     time = df['time']
     dt = timeprms['dt']
     V = np.zeros_like(time)
@@ -147,7 +144,7 @@ def LIF(df, neuronprms, timeprms):
 def InterN(df, neuronprms, timeprms):
     t, V = LIF(df,neuronprms , timeprms)
     Iout = np.zeros_like(df['time'])
-    Iout[np.where(V>=-56)] = 1*neuronprms['outA'] # introduce a lag. 
+    Iout[np.where(V>=-56)] = neuronprms['outA'] # introduce a lag. 
     df['outI'] = Iout
     return df, V
 
@@ -199,6 +196,7 @@ def dfPlot(df):
         ax.set_ylabel(col, rotation=90)
         # ax.set_yticks([])
         ax.grid(True)
+        # ax.set_xlim(4,7)
 
     axes[-1].set_xlabel('Time')
     plt.tight_layout()
