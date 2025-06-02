@@ -2,14 +2,14 @@ import numpy as np
 import matplotlib.pyplot as plt
 import scipy.signal as signal
 from tqdm import tqdm
-plt.rcParams['text.usetex'] = True
+plt.rcParams['text.usetex'] = False
 
 ##________ 1D System ________##
 def ReceptorNeuron(id1, id2, totL, k, lag, amp1=1, amp2=1, signal='pulse', window=10):
     if signal == 'pulse':
         out = {
-            id2: amp2 * signal.unit_impulse(totL, k + lag),
-            id1: amp1 * signal.unit_impulse(totL, k), 
+            id2: amp2 * signal.unit_impulse(totL, k + lag), # type: ignore
+            id1: amp1 * signal.unit_impulse(totL, k),  # type: ignore
         }
     elif signal == 'window':
         s1 = np.zeros(totL)
