@@ -55,17 +55,7 @@ def LIFNeuron(prm):
 
 
 ##________ 2D System ________##
-def thetaUpdate(O1, O2, theta_R, delta=np.pi):
-    i = 0
-    hammd =np.sum(O1 != O2)
-    while hammd > 0:
-        i+=1
-        if np.sum(O1)>0:
-            dtheta = theta_R[-1] - delta*np.exp(-i)
-        elif np.sum(O2)>0:
-            dtheta = theta_R[-1] + delta*np.exp(-i)
-        theta_R.append(dtheta)
-    return theta_R
+
     
 def PeriodicEmission(tmax, period, dt):
     emission = np.arange(0, tmax, period)
@@ -77,7 +67,7 @@ def PeriodicEmission(tmax, period, dt):
 
 def PeriodicEmissionW(time, time_params):
     S_out = np.zeros_like(time)
-    emission_starts = np.arange(0, time[-1], time_params['period'])
+    emission_starts = np.linspace(0, time[-1], time_params['pulses'])
 
     for t_emit in emission_starts:
         start_idx = int(t_emit / time_params['dt'])
@@ -86,7 +76,6 @@ def PeriodicEmissionW(time, time_params):
         
     emission_times = time[S_out == 1]
     return emission_times, S_out
-
 
 def SimulateTime(df, emission, init_params):
     theta_vals = np.deg2rad(np.arange(0, 360, init_params['theta_resolution']))  # Angular sweep directions
@@ -103,15 +92,15 @@ def SimulateTime(df, emission, init_params):
                 wave_point = np.array([x, y])
 
                 if not hit1 and np.linalg.norm(wave_point - init_params['r1_position']) < init_params['tolerance']:
-                    df.at[i, 'Rout1'] = init_params['r1_amp']
+                    df.at[i, 'outR1'] = init_params['r1_amp']
                     hit1 = True
 
                 if not hit2 and np.linalg.norm(wave_point - init_params['r2_position']) < init_params['tolerance']:
-                    df.at[i, 'Rout2'] = init_params['r2_amp']
+                    df.at[i, 'outR2'] = init_params['r2_amp']
                     hit2 = True
     return df
 
-def SimulateTime2(df, emission, init_params):
+def ReceptorN(df, emission, init_params): #SimulateTime2()
     v = init_params['v']
     s_pos = init_params['s_position']
     r1_pos = init_params['r1_position']
@@ -123,12 +112,94 @@ def SimulateTime2(df, emission, init_params):
     for at in arrival1:
         idx = np.searchsorted(df['time'], at)
         if idx < len(df):
-            df.at[idx, 'Rout1'] = init_params['r1_amp']
+            df.at[idx, 'outR1'] = init_params['r1_amp']
 
     for at in arrival2:
         idx = np.searchsorted(df['time'], at)
         if idx < len(df):
-            df.at[idx, 'Rout2'] = init_params['r2_amp']
-
+            df.at[idx, 'outR2'] = init_params['r2_amp']
     return df
 
+def LIF(df, neuronprms, timeprms):
+    '''Interneuron activity. 
+    in: outR
+    out outI'''
+    time = df['time']
+    dt = timeprms['dt']
+    V = np.zeros_like(time)
+    V[0] = neuronprms['V0']
+    rfcount = 0
+    
+    for i in range(1, len(time)):
+        if rfcount > 0 : 
+            V[i] = neuronprms['V0']
+            rfcount -= 1
+            continue
+        I1 = df[neuronprms['I1']][i]
+        I2 = df[neuronprms['I2']][i]
+        dV = (neuronprms['V0'] - V[i-1] + neuronprms['w1'] * I1 + neuronprms['w2'] * I2) / neuronprms['tau']
+        V[i] = V[i-1] +dt * dV
+        if V[i] >=neuronprms['Vq']:
+            V[i] = neuronprms['V0']
+            rfcount = neuronprms['rft'] #refractory period
+    return time, V
+
+def InterN(df, neuronprms, timeprms):
+    t, V = LIF(df,neuronprms , timeprms)
+    Iout = np.zeros_like(df['time'])
+    Iout[np.where(V>=-56)] = 1*neuronprms['outA'] # introduce a lag. 
+    df['outI'] = Iout
+    return df, V
+
+def OuterN(df, neuronprms, timeprms): #out_id = {O1, O2}
+    t, V = LIF(df,neuronprms , timeprms)
+    Iout = np.zeros_like(df['time'])
+    Iout[np.where(V>=-56)] = 1*neuronprms['outA'] # introduce a lag. 
+    df[f'out{neuronprms['id']}'] = Iout
+    return df, V
+
+
+def thetaUpdate(df,init_params, theta_R, delta=np.pi/2):
+    O1 = df['outO1']; O2 = df['outO2']
+    i = 0
+    hammd =np.sum (df['outO1']!= df['outO2'])
+    if hammd > 0:
+        if np.sum(O1)>0:
+            dtheta = theta_R[-1] - delta*np.exp(-i)
+        elif np.sum(O2)>0:
+            dtheta = theta_R[-1] + delta*np.exp(-i)
+        else:
+            dtheta = 0
+        theta_R.append(dtheta)
+    init_params['R1polar'][1] += theta_R[-1]
+    init_params['R2polar'][1] += theta_R[-1]
+    return init_params, theta_R
+    
+
+# def FindSource():
+
+
+##______________________________##
+
+def dfPlot(df):
+    # Ensure 'time' column exists
+    if 'time' not in df.columns:
+        print("DataFrame must contain a 'time' column.")
+        return
+
+    signal_cols = [col for col in df.columns if col != 'time']
+
+    # Create subplots
+    fig, axes = plt.subplots(len(signal_cols), 1, figsize=(10, 2 * len(signal_cols)), sharex=True)
+    if len(signal_cols) == 1:
+        axes = [axes]
+
+    for ax, col in zip(axes, signal_cols):
+        ax.plot(df['time'], df[col], linewidth=1.5, color = 'red')
+        ax.set_ylabel(col, rotation=90)
+        # ax.set_yticks([])
+        ax.grid(True)
+
+    axes[-1].set_xlabel('Time')
+    plt.tight_layout()
+    plt.show()
