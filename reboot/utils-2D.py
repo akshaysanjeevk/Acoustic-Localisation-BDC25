@@ -71,7 +71,6 @@ def InterN(df, neuronprms, timeprms):
     t, V = LIF(df,neuronprms , timeprms)
     Iout = np.zeros_like(df['time'])
     Iout[np.where(V>=-56)] = neuronprms['outAmp'] # introduce a lag. 
-    
     df['outI'] = Iout
     Vdf = pd.DataFrame({'time':t})
     Vdf['V_I'] = V
@@ -88,10 +87,16 @@ def OuterN(df, Vdf, neuronprms, timeprms): #out_id = {O1, O2}
 def FindSource(time, emissionIdx, outS, init_params,
                 time_prms, INeuron, O1Neuron, O2Neuron):
     dfR = ReceptorN(time, outS, emissionIdx, init_params)
+    # print(dfR.sample())
     dfI, VdfI = InterN(dfR, INeuron,time_prms )
+    # print(dfI.sample())
     dfO1, VdfO1 = OuterN(dfI, VdfI, O1Neuron, time_prms)
-    dfO, VdfO = OuterN(dfO1, VdfO1, O2Neuron, time_prms)
-    return dfO, VdfO
+    # print(dfO1.sample())
+    dfO2, VdfO2 = OuterN(dfO1, VdfO1, O2Neuron, time_prms)
+    # print(dfO2.sample())
+    O1 = True if dfO2['outO1'].sum() > 0 else False
+    O2 = True if dfO2['outO2'].sum() > 0 else False
+    return dfO2, VdfO2, [O1, O2]
 
 
 

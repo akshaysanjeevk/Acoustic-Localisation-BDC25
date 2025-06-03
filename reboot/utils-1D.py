@@ -64,19 +64,21 @@ def LIF(df, neuronprms, timeprms):
 def InterN(df, neuronprms, timeprms):
     t, V = LIF(df,neuronprms , timeprms)
     Iout = np.zeros_like(df['time'])
-    Iout[np.where(V>=-56)] = neuronprms['outAmp'] # introduce a lag. 
+    Iout[np.where(V>=(neuronprms['Vq']-1))] = neuronprms['outAmp'] # introduce a lag. 
     df['outI'] = Iout
     Vdf = pd.DataFrame({'time':t})
     Vdf['V_I'] = V
     return df, Vdf
 
 def OuterN(df, Vdf, neuronprms, timeprms): #out_id = {O1, O2}
-    t, V = LIF(df,neuronprms , timeprms)
+    _, V = LIF(df,neuronprms , timeprms)
     Iout = np.zeros_like(df['time'])
-    Iout[np.where(V>=-56)] = 1*neuronprms['outAmp'] # introduce a lag. 
+    Iout[np.where(V>=(neuronprms['Vq']-1))] = neuronprms['outAmp'] # introduce a lag. 
     df[f'out{neuronprms['id']}'] = Iout
     Vdf[f'V_{neuronprms['id']}'] = V
     return df, Vdf
+
+
 
 
 def dfPlot(df):
@@ -103,3 +105,39 @@ def dfPlot(df):
 
     # plt.tight_layout()
     # plt.show()
+    
+
+
+def dfPlot2(df):
+
+    # Ensure 'time' column exists
+    if 'time' not in df.columns:
+        print("DataFrame must contain a 'time' column.")
+        return
+
+    signal_cols = [col for col in df.columns if col != 'time']
+
+    # Set dark theme
+    plt.style.use('dark_background')
+
+    # Create subplots
+    fig, axes = plt.subplots(len(signal_cols), 1, figsize=(10, 2 * len(signal_cols)), sharex=True)
+
+    if len(signal_cols) == 1:
+        axes = [axes]
+
+    for ax, col in zip(axes, signal_cols):
+        ax.plot(df['time'], df[col], linewidth=1.5, color='cyan')
+        ax.set_ylabel(col, rotation=90, color='white')
+        ax.tick_params(axis='y', colors='white')
+        ax.tick_params(axis='x', colors='white')
+        ax.grid(True, linestyle='--', alpha=0.5)
+
+    axes[-1].set_xlabel('Time', color='white')
+
+    fig.patch.set_facecolor('dimgray')
+    for ax in axes:
+        ax.set_facecolor('dimgray')
+
+    plt.tight_layout()
+    plt.show()
